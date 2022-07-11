@@ -4,14 +4,18 @@ class Sumo::Collection
   include Enumerable
   include Sumo::Error
 
-  attr_reader :offset
+  attr_reader :offset, :total
+
+  LIMIT = 1000
 
   # Create a new collection.
   def initialize(hash = {})
-    @offset = hash[:offset] || 0
+    # puts "new page: #{hash}"
     @get_values = hash[:get_values]
     @get_status = hash[:get_status]
     @count_key = hash[:count_key]
+    @offset = hash[:offset] || 0
+    @total = hash[:total] || status[@count_key]
   end
 
   # Iterate through each member of the collection, lazily making HTTP requests
@@ -34,19 +38,16 @@ class Sumo::Collection
   private :status
 
   def get_new_status
-    stat = { 'state' => '', @count_key => @offset }
-    until (@offset < stat[@count_key]) || stat['state'].start_with?('DONE')
+    stat = { 'state' => '' }
+    # puts "requested stat: #{stat}"
+    until stat['state'].start_with?('DONE')
       stat = @get_status.call
+      # puts "requested new stat: #{stat}"
       sleep 1
     end
     stat
   end
   private :get_new_status
-
-  def total
-    status[@count_key]
-  end
-  private :total
 
   def state
     status['state']
@@ -66,19 +67,20 @@ class Sumo::Collection
   def limit
     @limit ||= begin
       natural_limit = total - offset
-      (natural_limit <= 1000) ? natural_limit : 1000
+      (natural_limit <= LIMIT) ? natural_limit : LIMIT
     end
   end
   private :limit
 
   def has_next_page?
-    ['GATHERING RESULTS', 'NOT STARTED'].include?(state)
+    offset + limit < total
   end
   private :has_next_page?
 
   def remaining
     @remaining ||= Sumo::Collection.new(
       :offset => offset + limit,
+      :total => @total,
       :get_values => @get_values,
       :get_status => @get_status,
       :count_key => @count_key

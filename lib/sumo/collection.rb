@@ -6,7 +6,7 @@ class Sumo::Collection
 
   attr_reader :offset, :total
 
-  LIMIT = 1000
+  LIMIT = 10000
 
   # Create a new collection.
   def initialize(hash = {})
@@ -45,6 +45,7 @@ class Sumo::Collection
       # puts "requested new stat: #{stat}"
       sleep 1
     end
+    print "Total: #{stat[@count_key]}..."
     stat
   end
   private :get_new_status
